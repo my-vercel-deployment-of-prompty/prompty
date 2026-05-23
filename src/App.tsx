@@ -914,7 +914,7 @@ function App() {
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between gap-4">
             <a href="#top" className="flex items-center gap-3 text-lg font-semibold tracking-tight text-ink hover:opacity-80 transition">
-              <img src="/favicon.png" alt="Prompty Logo" className="h-24 w-24 rounded-lg" />
+              <img src="/favicon.png" alt="Prompty Logo" className="h-20 w-24 rounded-lg" />
               مكتبة البرومبتات العربية
             </a>
           </div>
