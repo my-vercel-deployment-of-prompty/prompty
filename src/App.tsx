@@ -1,4 +1,16 @@
-import { LogOut, PencilLine, Plus, Search, Shield, Trash2 } from 'lucide-react';
+import {
+  Instagram,
+  Linkedin,
+  LogOut,
+  PencilLine,
+  Plus,
+  Search,
+  Send,
+  Shield,
+  Sparkles,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { PromptCard } from './components/PromptCard';
 import {
@@ -19,6 +31,25 @@ const MANAGE_PATH = '/manage';
 const ADMIN_EMAIL = 'myemail@gmail.com';
 const ADMIN_PASSWORD = '12345678';
 const ADMIN_SESSION_KEY = 'prompty-admin-session';
+const SOCIAL_PROMPT_KEY = 'prompty-social-prompt-dismissed';
+
+const socialLinks = [
+  {
+    name: 'Telegram',
+    href: 'https://telegram.com',
+    icon: Send,
+  },
+  {
+    name: 'Instagram',
+    href: 'https://instagram.com',
+    icon: Instagram,
+  },
+  {
+    name: 'LinkedIn',
+    href: 'https://linkedin.com',
+    icon: Linkedin,
+  },
+] as const;
 
 type CategoryFormState = {
   name_ar: string;
@@ -62,6 +93,14 @@ function readAdminSession() {
   }
 
   return window.localStorage.getItem(ADMIN_SESSION_KEY) === 'true';
+}
+
+function readSocialPromptState() {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  return window.localStorage.getItem(SOCIAL_PROMPT_KEY) === 'true';
 }
 
 function splitTags(value: string) {
@@ -121,6 +160,7 @@ function App() {
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [dismissedSocialPrompt, setDismissedSocialPrompt] = useState(readSocialPromptState);
   const [categoryForm, setCategoryForm] = useState<CategoryFormState>(emptyCategoryForm);
   const [promptForm, setPromptForm] = useState<PromptFormState>(emptyPromptForm);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
@@ -217,6 +257,11 @@ function App() {
 
     window.history.pushState({}, '', path);
     setPathname(path);
+  }
+
+  function dismissSocialPrompt() {
+    window.localStorage.setItem(SOCIAL_PROMPT_KEY, 'true');
+    setDismissedSocialPrompt(true);
   }
 
   function handleCategoryNavClick(slug: string) {
@@ -784,20 +829,94 @@ function App() {
 
   return (
     <div className="min-h-screen text-ink">
-      <header className="sticky top-0 z-30 border-b border-white/60 bg-[#fffaf2]/85 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between gap-4">
-            <a href="#top" className="text-lg font-semibold tracking-tight text-ink">
-              مكتبة البرومبتات العربية
-            </a>
-
+      {!dismissedSocialPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(33,27,22,0.42)] px-4">
+          <div className="relative w-full max-w-lg rounded-[34px] border border-white/70 bg-[#fffaf2] p-7 shadow-[0_28px_70px_rgba(38,30,22,0.22)]">
             <button
               type="button"
-              onClick={() => navigateTo(MANAGE_PATH)}
-              className="rounded-full border border-bronze/20 bg-white/80 px-4 py-2 text-sm font-medium text-bronze transition hover:bg-bronze hover:text-white"
+              onClick={dismissSocialPrompt}
+              className="absolute left-4 top-4 rounded-full border border-bronze/15 bg-white/90 p-2 text-slate-500 transition hover:text-ink"
+              aria-label="إغلاق"
             >
-              /manage
+              <X size={18} />
             </button>
+
+            <div className="mb-5 max-w-md">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-bronze/15 bg-white/80 px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.24em] text-bronze">
+                <Sparkles size={14} />
+                <span>تحسين مهدي</span>
+              </div>
+              <h2 className="text-2xl font-semibold leading-10">
+                تابعني على تيليجرام وإنستغرام ولينكدإن
+              </h2>
+              <p className="mt-3 text-sm leading-7 text-slate-600">
+                لتصلك آخر الأخبار والأدوات والتحديثات الجديدة أولاً بأول.
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              {socialLinks.map(({ name, href, icon: Icon }) => (
+                <a
+                  key={name}
+                  href={href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="group rounded-[26px] border border-[#eadfce] bg-white/85 p-4 text-center transition hover:-translate-y-1 hover:border-bronze/30 hover:shadow-soft"
+                >
+                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-sand text-bronze transition group-hover:bg-bronze group-hover:text-white">
+                    <Icon size={20} />
+                  </div>
+                  <p className="text-sm font-semibold text-ink">{name}</p>
+                  <p className="mt-1 text-xs text-slate-500">اضغط للمتابعة</p>
+                </a>
+              ))}
+            </div>
+            <div className="mt-5 rounded-[24px] border border-[#eadfce] bg-[linear-gradient(135deg,rgba(255,255,255,0.92),rgba(244,236,224,0.92))] px-4 py-3">
+              <p className="text-[11px] uppercase tracking-[0.26em] text-bronze/80">
+                Designed by
+              </p>
+              <p className="mt-1 text-lg font-semibold tracking-[0.08em] text-ink">
+                تحسين مهدي
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <header className="border-b border-white/60 bg-[#fffaf2]/85 backdrop-blur-xl">
+        <div className="border-b border-bronze/10 bg-[linear-gradient(90deg,rgba(126,92,54,0.08),rgba(255,255,255,0.55),rgba(109,129,94,0.12))]">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-3 px-4 py-2 text-center text-sm text-slate-700 sm:px-6 lg:px-8">
+            <span className="font-medium">
+              تابعني على تيليجرام وإنستغرام ولينكدإن لتصلك آخر الأخبار والأدوات والتحديثات.
+            </span>
+            <div className="flex items-center gap-2">
+              {socialLinks.map(({ name, href, icon: Icon }) => (
+                <a
+                  key={name}
+                  href={href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-bronze/15 bg-white/80 text-bronze transition hover:bg-bronze hover:text-white"
+                  aria-label={name}
+                  title={name}
+                >
+                  <Icon size={16} />
+                </a>
+              ))}
+            </div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-bronze/15 bg-white/75 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-bronze">
+              <Sparkles size={14} />
+              <span>تحسين مهدي</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between gap-4">
+            <a href="#top" className="flex items-center gap-3 text-lg font-semibold tracking-tight text-ink hover:opacity-80 transition">
+              <img src="/favicon.png" alt="Prompty Logo" className="h-24 w-24 rounded-lg" />
+              مكتبة البرومبتات العربية
+            </a>
           </div>
 
           <nav className="scrollbar-none flex items-center gap-2 overflow-x-auto pb-1">
