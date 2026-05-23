@@ -26,13 +26,11 @@ export function PromptCard({
           className="inline-flex items-center gap-2 rounded-full border border-bronze/20 bg-bronze/5 px-3 py-2 text-sm font-medium text-bronze transition hover:bg-bronze hover:text-white"
         >
           {isCopied ? <Check size={16} /> : <Copy size={16} />}
-          <span>{isCopied ? '✓ تم النسخ' : 'نسخ البرومبت'}</span>
+          <span>{isCopied ? 'تم النسخ' : 'نسخ البرومبت'}</span>
         </button>
       </div>
 
-      <h3 className="mb-3 text-xl font-semibold leading-8 text-ink">
-        {prompt.title_ar}
-      </h3>
+      <h3 className="mb-3 text-xl font-semibold leading-8 text-ink">{prompt.title_ar}</h3>
 
       <p className="mb-4 rounded-[22px] bg-[#fcfaf5] p-4 text-sm leading-8 text-slate-700">
         {prompt.prompt_ar}

@@ -39,6 +39,20 @@ for select
 to anon, authenticated
 using (true);
 
+create policy "Public manage categories"
+on public.categories
+for all
+to anon, authenticated
+using (true)
+with check (true);
+
+create policy "Public manage prompts"
+on public.prompts
+for all
+to anon, authenticated
+using (true)
+with check (true);
+
 insert into public.categories (name_ar, slug, "order")
 values
   ('كتابة', 'writing', 1),
