@@ -12,14 +12,38 @@ create table public.categories (
 
 create table public.prompts (
   id uuid primary key default gen_random_uuid(),
-  title_ar text not null,
-  prompt_ar text not null,
+  primary_language text not null default 'ar',
+  title_ar text not null default '',
+  prompt_ar text not null default '',
   placeholders jsonb not null default '[]'::jsonb,
   category text not null references public.categories(slug) on update cascade on delete restrict,
-  usage text not null,
+  usage text not null default '',
+  title_en text not null default '',
+  prompt_en text not null default '',
+  usage_en text not null default '',
   tags text[] not null default '{}',
   created_at timestamptz not null default now(),
-  constraint prompts_placeholders_is_array check (jsonb_typeof(placeholders) = 'array')
+  constraint prompts_primary_language_valid check (primary_language in ('ar', 'en')),
+  constraint prompts_placeholders_is_array check (jsonb_typeof(placeholders) = 'array'),
+  constraint prompts_has_primary_content check (
+    (primary_language = 'ar' and btrim(title_ar) <> '' and btrim(prompt_ar) <> '' and btrim(usage) <> '')
+    or
+    (primary_language = 'en' and btrim(title_en) <> '' and btrim(prompt_en) <> '' and btrim(usage_en) <> '')
+  ),
+  constraint prompts_arabic_version_complete check (
+    (
+      btrim(title_ar) = '' and btrim(prompt_ar) = '' and btrim(usage) = ''
+    ) or (
+      btrim(title_ar) <> '' and btrim(prompt_ar) <> '' and btrim(usage) <> ''
+    )
+  ),
+  constraint prompts_english_version_complete check (
+    (
+      btrim(title_en) = '' and btrim(prompt_en) = '' and btrim(usage_en) = ''
+    ) or (
+      btrim(title_en) <> '' and btrim(prompt_en) <> '' and btrim(usage_en) <> ''
+    )
+  )
 );
 
 create index prompts_category_idx on public.prompts (category);

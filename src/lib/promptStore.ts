@@ -1,6 +1,6 @@
 import { fallbackCategories, fallbackPrompts } from '../data/fallbackPrompts';
 import { hasSupabaseEnv, supabase } from './supabase';
-import type { Category, PromptItem, PromptPlaceholder } from '../types';
+import type { Category, PromptItem, PromptLanguage, PromptPlaceholder } from '../types';
 
 const STORAGE_KEY = 'prompty-admin-store';
 
@@ -12,8 +12,21 @@ type StoredLibrary = {
 export type CategoryInput = Pick<Category, 'name_ar' | 'slug' | 'order'>;
 export type PromptInput = Pick<
   PromptItem,
-  'title_ar' | 'prompt_ar' | 'placeholders' | 'category' | 'usage' | 'tags'
+  | 'primary_language'
+  | 'title_ar'
+  | 'prompt_ar'
+  | 'usage'
+  | 'title_en'
+  | 'prompt_en'
+  | 'usage_en'
+  | 'placeholders'
+  | 'category'
+  | 'tags'
 >;
+
+function normalizePromptLanguage(value: string | null | undefined): PromptLanguage {
+  return value === 'en' ? 'en' : 'ar';
+}
 
 function normalizePlaceholder(placeholder: Partial<PromptPlaceholder> | null | undefined) {
   if (!placeholder?.key) {
@@ -33,8 +46,13 @@ function normalizePlaceholder(placeholder: Partial<PromptPlaceholder> | null | u
 function normalizePrompt(prompt: Partial<PromptItem>): PromptItem {
   return {
     id: prompt.id ?? crypto.randomUUID(),
+    primary_language: normalizePromptLanguage(prompt.primary_language),
     title_ar: prompt.title_ar ?? '',
     prompt_ar: prompt.prompt_ar ?? '',
+    usage: prompt.usage ?? '',
+    title_en: prompt.title_en ?? '',
+    prompt_en: prompt.prompt_en ?? '',
+    usage_en: prompt.usage_en ?? '',
     placeholders: (prompt.placeholders ?? []).reduce<PromptPlaceholder[]>(
       (accumulator, placeholder) => {
         const normalized = normalizePlaceholder(placeholder);
@@ -48,7 +66,6 @@ function normalizePrompt(prompt: Partial<PromptItem>): PromptItem {
       [],
     ),
     category: prompt.category ?? '',
-    usage: prompt.usage ?? '',
     tags: prompt.tags ?? [],
     created_at: prompt.created_at ?? '',
   };

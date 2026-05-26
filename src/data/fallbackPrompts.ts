@@ -226,5 +226,9 @@ const fallbackPromptRows = [
 
 export const fallbackPrompts: PromptItem[] = fallbackPromptRows.map((prompt) => ({
   ...prompt,
+  primary_language: 'ar',
+  title_en: '',
+  prompt_en: '',
+  usage_en: '',
   placeholders: buildPlaceholderDefinitions(prompt.prompt_ar, []),
 }));

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, Check, Copy } from 'lucide-react';
 import { buildPlaceholderDefinitions, buildPromptSegments, resolvePromptText } from '../lib/placeholders';
-import type { PromptItem } from '../types';
+import type { PromptItem, PromptLanguage } from '../types';
 
 type PromptCardProps = {
   prompt: PromptItem;
@@ -10,17 +10,55 @@ type PromptCardProps = {
   onCopy: (promptText: string, promptId: string) => void;
 };
 
+function hasPromptVersion(prompt: PromptItem, language: PromptLanguage) {
+  if (language === 'ar') {
+    return Boolean(prompt.title_ar.trim() && prompt.prompt_ar.trim() && prompt.usage.trim());
+  }
+
+  return Boolean(prompt.title_en.trim() && prompt.prompt_en.trim() && prompt.usage_en.trim());
+}
+
+function getInitialLanguage(prompt: PromptItem): PromptLanguage {
+  if (hasPromptVersion(prompt, prompt.primary_language)) {
+    return prompt.primary_language;
+  }
+
+  return hasPromptVersion(prompt, 'ar') ? 'ar' : 'en';
+}
+
+function getPromptContent(prompt: PromptItem, language: PromptLanguage) {
+  if (language === 'en') {
+    return {
+      title: prompt.title_en,
+      text: prompt.prompt_en,
+      usage: prompt.usage_en,
+    };
+  }
+
+  return {
+    title: prompt.title_ar,
+    text: prompt.prompt_ar,
+    usage: prompt.usage,
+  };
+}
+
 export function PromptCard({
   prompt,
   categoryName,
   isCopied,
   onCopy,
 }: PromptCardProps) {
+  const hasArabic = hasPromptVersion(prompt, 'ar');
+  const hasEnglish = hasPromptVersion(prompt, 'en');
+  const canToggleLanguage = hasArabic && hasEnglish;
+  const [activeLanguage, setActiveLanguage] = useState<PromptLanguage>(() => getInitialLanguage(prompt));
+  const activeContent = getPromptContent(prompt, activeLanguage);
+  const isEnglishActive = activeLanguage === 'en';
   const placeholderDefinitions = useMemo(
-    () => buildPlaceholderDefinitions(prompt.prompt_ar, prompt.placeholders),
-    [prompt.placeholders, prompt.prompt_ar],
+    () => buildPlaceholderDefinitions(activeContent.text, prompt.placeholders),
+    [activeContent.text, prompt.placeholders],
   );
-  const promptSegments = useMemo(() => buildPromptSegments(prompt.prompt_ar), [prompt.prompt_ar]);
+  const promptSegments = useMemo(() => buildPromptSegments(activeContent.text), [activeContent.text]);
   const cardRef = useRef<HTMLElement | null>(null);
   const [activePlaceholderKey, setActivePlaceholderKey] = useState<string | null>(null);
   const [placeholderValues, setPlaceholderValues] = useState<Record<string, string>>(() =>
@@ -31,6 +69,10 @@ export function PromptCard({
       ]),
     ),
   );
+
+  useEffect(() => {
+    setActiveLanguage(getInitialLanguage(prompt));
+  }, [prompt]);
 
   useEffect(() => {
     setPlaceholderValues((current) =>
@@ -45,7 +87,7 @@ export function PromptCard({
 
   useEffect(() => {
     setActivePlaceholderKey(null);
-  }, [prompt.id]);
+  }, [prompt.id, activeLanguage]);
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent) {
@@ -62,7 +104,9 @@ export function PromptCard({
     (placeholder) => !placeholderValues[placeholder.key]?.trim(),
   ).length;
   const canCopy = placeholderDefinitions.length === 0 || missingPlaceholderCount === 0;
-  const finalPromptText = resolvePromptText(prompt.prompt_ar, placeholderValues);
+  const finalPromptText = resolvePromptText(activeContent.text, placeholderValues);
+  const promptDirection = isEnglishActive ? 'ltr' : 'rtl';
+  const promptAlignClass = isEnglishActive ? 'text-left' : 'text-right';
 
   return (
     <article
@@ -73,26 +117,59 @@ export function PromptCard({
         <span className="rounded-full bg-sand px-3 py-1 text-xs font-semibold text-bronze">
           {categoryName}
         </span>
-        <button
-          type="button"
-          disabled={!canCopy}
-          onClick={() => onCopy(finalPromptText, prompt.id)}
-          className="inline-flex items-center gap-2 rounded-full border border-bronze/20 bg-bronze/5 px-3 py-2 text-sm font-medium text-bronze transition hover:bg-bronze hover:text-white disabled:cursor-not-allowed disabled:border-emerald-200 disabled:bg-emerald-50 disabled:text-emerald-700 disabled:hover:bg-emerald-50 disabled:hover:text-emerald-700"
-        >
-          {isCopied ? <Check size={16} /> : <Copy size={16} />}
-          <span>
-            {isCopied
-              ? 'تم النسخ'
-              : canCopy
-                ? 'نسخ البرومبت'
-                : `أكمل ${missingPlaceholderCount} متغير`}
-          </span>
-        </button>
+        <div className="flex items-center gap-2">
+          {canToggleLanguage && (
+            <button
+              type="button"
+              onClick={() => setActiveLanguage((current) => (current === 'ar' ? 'en' : 'ar'))}
+              className="inline-flex items-center gap-1 rounded-full border border-bronze/15 bg-white px-1.5 py-1 text-xs font-semibold text-slate-600 transition hover:border-bronze/30 hover:text-ink"
+              aria-label={isEnglishActive ? 'Show Arabic version' : 'Show English version'}
+            >
+              <span
+                className={`rounded-full px-2 py-1 transition ${
+                  !isEnglishActive ? 'bg-bronze text-white' : 'text-slate-500'
+                }`}
+              >
+                AR
+              </span>
+              <span
+                className={`rounded-full px-2 py-1 transition ${
+                  isEnglishActive ? 'bg-bronze text-white' : 'text-slate-500'
+                }`}
+              >
+                EN
+              </span>
+            </button>
+          )}
+          <button
+            type="button"
+            disabled={!canCopy}
+            onClick={() => onCopy(finalPromptText, prompt.id)}
+            className="inline-flex items-center gap-2 rounded-full border border-bronze/20 bg-bronze/5 px-3 py-2 text-sm font-medium text-bronze transition hover:bg-bronze hover:text-white disabled:cursor-not-allowed disabled:border-emerald-200 disabled:bg-emerald-50 disabled:text-emerald-700 disabled:hover:bg-emerald-50 disabled:hover:text-emerald-700"
+          >
+            {isCopied ? <Check size={16} /> : <Copy size={16} />}
+            <span>
+              {isCopied
+                ? 'تم النسخ'
+                : canCopy
+                  ? 'نسخ البرومبت'
+                  : `أكمل ${missingPlaceholderCount} متغير`}
+            </span>
+          </button>
+        </div>
       </div>
 
-      <h3 className="mb-3 text-xl font-semibold leading-8 text-ink">{prompt.title_ar}</h3>
+      <h3
+        dir={promptDirection}
+        className={`mb-3 text-xl font-semibold leading-8 text-ink ${promptAlignClass}`}
+      >
+        {activeContent.title}
+      </h3>
 
-      <div className="mb-4 rounded-[22px] bg-[#fcfaf5] p-4 text-sm leading-8 text-slate-700">
+      <div
+        dir={promptDirection}
+        className={`mb-4 rounded-[22px] bg-[#fcfaf5] p-4 text-sm leading-8 text-slate-700 ${promptAlignClass}`}
+      >
         <p className="whitespace-pre-wrap">
           {promptSegments.map((segment, index) => {
             if (segment.type === 'text') {
@@ -166,8 +243,11 @@ export function PromptCard({
         </p>
       )}
 
-      <p className="mb-4 text-sm leading-7 text-slate-600">
-        <span className="font-semibold text-ink">الاستخدام:</span> {prompt.usage}
+      <p
+        dir={promptDirection}
+        className={`mb-4 text-sm leading-7 text-slate-600 ${promptAlignClass}`}
+      >
+        <span className="font-semibold text-ink">الاستخدام:</span> {activeContent.usage}
       </p>
 
       <div className="mt-auto flex flex-wrap gap-2">

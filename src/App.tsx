@@ -29,7 +29,7 @@ import {
   type CategoryInput,
   type PromptInput,
 } from './lib/promptStore';
-import type { Category, PromptItem, PromptPlaceholder } from './types';
+import type { Category, PromptItem, PromptLanguage, PromptPlaceholder } from './types';
 
 const ALL_CATEGORY = 'all';
 const MANAGE_PATH = '/manage';
@@ -63,11 +63,15 @@ type CategoryFormState = {
 };
 
 type PromptFormState = {
+  primary_language: PromptLanguage;
   title_ar: string;
   prompt_ar: string;
+  usage: string;
+  title_en: string;
+  prompt_en: string;
+  usage_en: string;
   placeholders: Record<string, PromptPlaceholderFormState>;
   category: string;
-  usage: string;
   tags: string;
 };
 
@@ -84,11 +88,15 @@ const emptyCategoryForm: CategoryFormState = {
 };
 
 const emptyPromptForm: PromptFormState = {
+  primary_language: 'ar',
   title_ar: '',
   prompt_ar: '',
+  usage: '',
+  title_en: '',
+  prompt_en: '',
+  usage_en: '',
   placeholders: {},
   category: '',
-  usage: '',
   tags: '',
 };
 
@@ -123,6 +131,34 @@ function splitTags(value: string) {
     .filter(Boolean);
 }
 
+function hasPromptLanguageContent(
+  prompt:
+    | Pick<
+        PromptItem,
+        'title_ar' | 'prompt_ar' | 'usage' | 'title_en' | 'prompt_en' | 'usage_en'
+      >
+    | Pick<
+        PromptFormState,
+        'title_ar' | 'prompt_ar' | 'usage' | 'title_en' | 'prompt_en' | 'usage_en'
+      >,
+  language: PromptLanguage,
+) {
+  if (language === 'ar') {
+    return Boolean(prompt.title_ar.trim() && prompt.prompt_ar.trim() && prompt.usage.trim());
+  }
+
+  return Boolean(prompt.title_en.trim() && prompt.prompt_en.trim() && prompt.usage_en.trim());
+}
+
+function getPromptPlaceholderSource(
+  prompt:
+    | Pick<PromptItem, 'primary_language' | 'prompt_ar' | 'prompt_en'>
+    | Pick<PromptFormState, 'primary_language' | 'prompt_ar' | 'prompt_en'>,
+) {
+  const primaryText = prompt.primary_language === 'ar' ? prompt.prompt_ar : prompt.prompt_en;
+  return primaryText.trim() || prompt.prompt_ar.trim() || prompt.prompt_en.trim();
+}
+
 function categoryToForm(category: Category): CategoryFormState {
   return {
     name_ar: category.name_ar,
@@ -132,9 +168,10 @@ function categoryToForm(category: Category): CategoryFormState {
 }
 
 function promptToForm(prompt: PromptItem): PromptFormState {
-  const placeholders = buildPlaceholderDefinitions(prompt.prompt_ar, prompt.placeholders).reduce<
-    Record<string, PromptPlaceholderFormState>
-  >((accumulator, placeholder) => {
+  const placeholders = buildPlaceholderDefinitions(
+    getPromptPlaceholderSource(prompt),
+    prompt.placeholders,
+  ).reduce<Record<string, PromptPlaceholderFormState>>((accumulator, placeholder) => {
     accumulator[placeholder.key] = {
       label: placeholder.label,
       description: placeholder.description,
@@ -144,11 +181,15 @@ function promptToForm(prompt: PromptItem): PromptFormState {
   }, {});
 
   return {
+    primary_language: prompt.primary_language,
     title_ar: prompt.title_ar,
     prompt_ar: prompt.prompt_ar,
+    usage: prompt.usage,
+    title_en: prompt.title_en,
+    prompt_en: prompt.prompt_en,
+    usage_en: prompt.usage_en,
     placeholders,
     category: prompt.category,
-    usage: prompt.usage,
     tags: prompt.tags.join(', '),
   };
 }
@@ -162,7 +203,7 @@ function toCategoryInput(form: CategoryFormState): CategoryInput {
 }
 
 function toPromptInput(form: PromptFormState): PromptInput {
-  const placeholders = extractPlaceholderKeys(form.prompt_ar).map((key) => {
+  const placeholders = extractPlaceholderKeys(getPromptPlaceholderSource(form)).map((key) => {
     const metadata = form.placeholders[key];
 
     return {
@@ -174,11 +215,15 @@ function toPromptInput(form: PromptFormState): PromptInput {
   });
 
   return {
+    primary_language: form.primary_language,
     title_ar: form.title_ar.trim(),
     prompt_ar: form.prompt_ar.trim(),
+    usage: form.usage.trim(),
+    title_en: form.title_en.trim(),
+    prompt_en: form.prompt_en.trim(),
+    usage_en: form.usage_en.trim(),
     placeholders,
     category: form.category,
-    usage: form.usage.trim(),
     tags: splitTags(form.tags),
   };
 }
@@ -229,8 +274,8 @@ function App() {
 
   const isManagePage = pathname === MANAGE_PATH;
   const detectedPlaceholderKeys = useMemo(
-    () => extractPlaceholderKeys(promptForm.prompt_ar),
-    [promptForm.prompt_ar],
+    () => extractPlaceholderKeys(getPromptPlaceholderSource(promptForm)),
+    [promptForm.primary_language, promptForm.prompt_ar, promptForm.prompt_en],
   );
 
   async function loadData() {
@@ -284,7 +329,15 @@ function App() {
       const matchesCategory =
         activeCategory === ALL_CATEGORY || prompt.category === activeCategory;
 
-      const haystack = [prompt.title_ar, prompt.prompt_ar, prompt.usage, prompt.tags.join(' ')]
+      const haystack = [
+        prompt.title_ar,
+        prompt.prompt_ar,
+        prompt.usage,
+        prompt.title_en,
+        prompt.prompt_en,
+        prompt.usage_en,
+        prompt.tags.join(' '),
+      ]
         .join(' ')
         .toLowerCase();
 
@@ -348,12 +401,21 @@ function App() {
     setEditingPromptId(null);
   }
 
-  function handlePromptTextChange(value: string) {
-    setPromptForm((current) => ({
-      ...current,
-      prompt_ar: value,
-      placeholders: syncPlaceholderFormState(value, current.placeholders),
-    }));
+  function handlePromptTextChange(language: PromptLanguage, value: string) {
+    setPromptForm((current) => {
+      const nextState = {
+        ...current,
+        [language === 'ar' ? 'prompt_ar' : 'prompt_en']: value,
+      };
+
+      return {
+        ...nextState,
+        placeholders: syncPlaceholderFormState(
+          getPromptPlaceholderSource(nextState),
+          current.placeholders,
+        ),
+      };
+    });
   }
 
   function handlePlaceholderFieldChange(
@@ -433,15 +495,47 @@ function App() {
     event.preventDefault();
 
     const payload = toPromptInput(promptForm);
+    const hasArabicVersion = hasPromptLanguageContent(payload, 'ar');
+    const hasEnglishVersion = hasPromptLanguageContent(payload, 'en');
+    const arabicPlaceholderKeys = extractPlaceholderKeys(payload.prompt_ar);
+    const englishPlaceholderKeys = extractPlaceholderKeys(payload.prompt_en);
+
+    if (!hasPromptLanguageContent(payload, payload.primary_language)) {
+      setInfoMessage(
+        payload.primary_language === 'ar'
+          ? 'أكمل حقول النسخة العربية الأساسية قبل حفظ البرومبت.'
+          : 'أكمل حقول النسخة الإنجليزية الأساسية قبل حفظ البرومبت.',
+      );
+      return;
+    }
+
+    if (!payload.category || payload.tags.length === 0) {
+      setInfoMessage('املأ بيانات البرومبت وأدخل وسمًا واحدًا على الأقل.');
+      return;
+    }
 
     if (
-      !payload.title_ar ||
-      !payload.prompt_ar ||
-      !payload.category ||
-      !payload.usage ||
-      payload.tags.length === 0
+      (payload.title_ar.trim() || payload.prompt_ar.trim() || payload.usage.trim()) &&
+      !hasArabicVersion
     ) {
-      setInfoMessage('املأ جميع حقول البرومبت وأدخل وسمًا واحدًا على الأقل.');
+      setInfoMessage('إذا أردت إضافة النسخة العربية، فيجب إدخال العنوان والنص والاستخدام معًا.');
+      return;
+    }
+
+    if (
+      (payload.title_en.trim() || payload.prompt_en.trim() || payload.usage_en.trim()) &&
+      !hasEnglishVersion
+    ) {
+      setInfoMessage('إذا أردت إضافة النسخة الإنجليزية، فيجب إدخال العنوان والنص والاستخدام معًا.');
+      return;
+    }
+
+    if (
+      hasArabicVersion &&
+      hasEnglishVersion &&
+      JSON.stringify(arabicPlaceholderKeys) !== JSON.stringify(englishPlaceholderKeys)
+    ) {
+      setInfoMessage('يجب أن تستخدم النسختان العربية والإنجليزية نفس المتغيرات بين الأقواس مثل [topic].');
       return;
     }
 
@@ -765,29 +859,142 @@ function App() {
 
                   <form className="space-y-4" onSubmit={handlePromptSubmit}>
                     <label className="block space-y-2">
-                      <span className="text-sm font-medium text-slate-700">العنوان</span>
-                      <input
-                        value={promptForm.title_ar}
+                      <span className="text-sm font-medium text-slate-700">اللغة الأساسية</span>
+                      <select
+                        value={promptForm.primary_language}
                         onChange={(event) =>
                           setPromptForm((current) => ({
                             ...current,
-                            title_ar: event.target.value,
+                            primary_language: event.target.value as PromptLanguage,
                           }))
                         }
                         className="w-full rounded-2xl border border-[#e7dccd] bg-[#fffcf7] px-4 py-3 outline-none transition focus:border-bronze/40 focus:ring-4 focus:ring-bronze/10"
-                        placeholder="عنوان البرومبت"
-                      />
+                      >
+                        <option value="ar">العربية</option>
+                        <option value="en">English</option>
+                      </select>
                     </label>
 
-                    <label className="block space-y-2">
-                      <span className="text-sm font-medium text-slate-700">النص</span>
-                      <textarea
-                        value={promptForm.prompt_ar}
-                        onChange={(event) => handlePromptTextChange(event.target.value)}
-                        className="min-h-36 w-full rounded-2xl border border-[#e7dccd] bg-[#fffcf7] px-4 py-3 outline-none transition focus:border-bronze/40 focus:ring-4 focus:ring-bronze/10"
-                        placeholder="اكتب نص البرومبت هنا، مثل: اكتب مقالًا عن [الموضوع]"
-                      />
-                    </label>
+                    <div className="grid gap-4 xl:grid-cols-2">
+                      <div className="space-y-4 rounded-[24px] border border-[#f0e7db] bg-[#fffcf8] p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-ink">النسخة العربية</p>
+                            <p className="text-xs text-slate-500">
+                              {promptForm.primary_language === 'ar'
+                                ? 'هذه هي النسخة التي ستظهر أولًا للمستخدم.'
+                                : 'اختيارية. أضفها فقط إذا أردت زر تبديل اللغة.'}
+                            </p>
+                          </div>
+                          {promptForm.primary_language === 'ar' && (
+                            <span className="rounded-full bg-olive/10 px-3 py-1 text-xs font-semibold text-olive">
+                              أساسية
+                            </span>
+                          )}
+                        </div>
+
+                        <label className="block space-y-2">
+                          <span className="text-sm font-medium text-slate-700">العنوان العربي</span>
+                          <input
+                            value={promptForm.title_ar}
+                            onChange={(event) =>
+                              setPromptForm((current) => ({
+                                ...current,
+                                title_ar: event.target.value,
+                              }))
+                            }
+                            className="w-full rounded-2xl border border-[#e7dccd] bg-white px-4 py-3 outline-none transition focus:border-bronze/40 focus:ring-4 focus:ring-bronze/10"
+                            placeholder="عنوان البرومبت"
+                          />
+                        </label>
+
+                        <label className="block space-y-2">
+                          <span className="text-sm font-medium text-slate-700">النص العربي</span>
+                          <textarea
+                            value={promptForm.prompt_ar}
+                            onChange={(event) => handlePromptTextChange('ar', event.target.value)}
+                            className="min-h-36 w-full rounded-2xl border border-[#e7dccd] bg-white px-4 py-3 outline-none transition focus:border-bronze/40 focus:ring-4 focus:ring-bronze/10"
+                            placeholder="اكتب نص البرومبت هنا، مثل: اكتب مقالًا عن [الموضوع]"
+                          />
+                        </label>
+
+                        <label className="block space-y-2">
+                          <span className="text-sm font-medium text-slate-700">الاستخدام بالعربية</span>
+                          <input
+                            value={promptForm.usage}
+                            onChange={(event) =>
+                              setPromptForm((current) => ({
+                                ...current,
+                                usage: event.target.value,
+                              }))
+                            }
+                            className="w-full rounded-2xl border border-[#e7dccd] bg-white px-4 py-3 outline-none transition focus:border-bronze/40 focus:ring-4 focus:ring-bronze/10"
+                            placeholder="متى يفيد هذا البرومبت؟"
+                          />
+                        </label>
+                      </div>
+
+                      <div className="space-y-4 rounded-[24px] border border-[#f0e7db] bg-[#fffdfa] p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-ink">English version</p>
+                            <p className="text-xs text-slate-500">
+                              {promptForm.primary_language === 'en'
+                                ? 'This is the version users will see first.'
+                                : 'Optional. Add it to show a language toggle button.'}
+                            </p>
+                          </div>
+                          {promptForm.primary_language === 'en' && (
+                            <span className="rounded-full bg-olive/10 px-3 py-1 text-xs font-semibold text-olive">
+                              Primary
+                            </span>
+                          )}
+                        </div>
+
+                        <label className="block space-y-2">
+                          <span className="text-sm font-medium text-slate-700">English title</span>
+                          <input
+                            dir="ltr"
+                            value={promptForm.title_en}
+                            onChange={(event) =>
+                              setPromptForm((current) => ({
+                                ...current,
+                                title_en: event.target.value,
+                              }))
+                            }
+                            className="w-full rounded-2xl border border-[#e7dccd] bg-white px-4 py-3 text-left outline-none transition focus:border-bronze/40 focus:ring-4 focus:ring-bronze/10"
+                            placeholder="Prompt title"
+                          />
+                        </label>
+
+                        <label className="block space-y-2">
+                          <span className="text-sm font-medium text-slate-700">English prompt</span>
+                          <textarea
+                            dir="ltr"
+                            value={promptForm.prompt_en}
+                            onChange={(event) => handlePromptTextChange('en', event.target.value)}
+                            className="min-h-36 w-full rounded-2xl border border-[#e7dccd] bg-white px-4 py-3 text-left outline-none transition focus:border-bronze/40 focus:ring-4 focus:ring-bronze/10"
+                            placeholder="Write the English prompt here, for example: Write an article about [topic]"
+                          />
+                        </label>
+
+                        <label className="block space-y-2">
+                          <span className="text-sm font-medium text-slate-700">Usage in English</span>
+                          <input
+                            dir="ltr"
+                            value={promptForm.usage_en}
+                            onChange={(event) =>
+                              setPromptForm((current) => ({
+                                ...current,
+                                usage_en: event.target.value,
+                              }))
+                            }
+                            className="w-full rounded-2xl border border-[#e7dccd] bg-white px-4 py-3 text-left outline-none transition focus:border-bronze/40 focus:ring-4 focus:ring-bronze/10"
+                            placeholder="When is this prompt useful?"
+                          />
+                        </label>
+                      </div>
+                    </div>
 
                     <div className="space-y-4 rounded-[24px] border border-dashed border-emerald-200 bg-emerald-50/60 p-4">
                       <div>
@@ -911,21 +1118,6 @@ function App() {
                     </label>
 
                     <label className="block space-y-2">
-                      <span className="text-sm font-medium text-slate-700">الاستخدام</span>
-                      <input
-                        value={promptForm.usage}
-                        onChange={(event) =>
-                          setPromptForm((current) => ({
-                            ...current,
-                            usage: event.target.value,
-                          }))
-                        }
-                        className="w-full rounded-2xl border border-[#e7dccd] bg-[#fffcf7] px-4 py-3 outline-none transition focus:border-bronze/40 focus:ring-4 focus:ring-bronze/10"
-                        placeholder="متى يفيد هذا البرومبت؟"
-                      />
-                    </label>
-
-                    <label className="block space-y-2">
                       <span className="text-sm font-medium text-slate-700">الوسوم</span>
                       <input
                         value={promptForm.tags}
@@ -969,6 +1161,12 @@ function App() {
                       const categoryName =
                         categories.find((category) => category.slug === prompt.category)?.name_ar ??
                         prompt.category;
+                      const primaryTitle =
+                        prompt.primary_language === 'en' ? prompt.title_en : prompt.title_ar;
+                      const primaryText =
+                        prompt.primary_language === 'en' ? prompt.prompt_en : prompt.prompt_ar;
+                      const hasArabicVersion = hasPromptLanguageContent(prompt, 'ar');
+                      const hasEnglishVersion = hasPromptLanguageContent(prompt, 'en');
 
                       return (
                         <div
@@ -977,9 +1175,24 @@ function App() {
                         >
                           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                             <div className="space-y-2">
-                              <h3 className="text-lg font-semibold">{prompt.title_ar}</h3>
-                              <p className="line-clamp-3 text-sm leading-7 text-slate-600">
-                                {prompt.prompt_ar}
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="text-lg font-semibold">{primaryTitle}</h3>
+                                <span className="rounded-full bg-bronze/10 px-2.5 py-1 text-[11px] font-semibold text-bronze">
+                                  {prompt.primary_language === 'ar' ? 'AR' : 'EN'}
+                                </span>
+                                {hasArabicVersion && hasEnglishVersion && (
+                                  <span className="rounded-full bg-olive/10 px-2.5 py-1 text-[11px] font-semibold text-olive">
+                                    ثنائي اللغة
+                                  </span>
+                                )}
+                              </div>
+                              <p
+                                dir={prompt.primary_language === 'en' ? 'ltr' : 'rtl'}
+                                className={`line-clamp-3 text-sm leading-7 text-slate-600 ${
+                                  prompt.primary_language === 'en' ? 'text-left' : 'text-right'
+                                }`}
+                              >
+                                {primaryText}
                               </p>
                               <p className="text-sm text-slate-500">
                                 {categoryName} | الوسوم: {prompt.tags.join('، ')}
