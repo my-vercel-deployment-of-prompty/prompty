@@ -14,15 +14,18 @@ create table public.prompts (
   id uuid primary key default gen_random_uuid(),
   title_ar text not null,
   prompt_ar text not null,
+  placeholders jsonb not null default '[]'::jsonb,
   category text not null references public.categories(slug) on update cascade on delete restrict,
   usage text not null,
   tags text[] not null default '{}',
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  constraint prompts_placeholders_is_array check (jsonb_typeof(placeholders) = 'array')
 );
 
 create index prompts_category_idx on public.prompts (category);
 create index prompts_created_at_idx on public.prompts (created_at desc);
 create index prompts_tags_gin_idx on public.prompts using gin (tags);
+create index prompts_placeholders_gin_idx on public.prompts using gin (placeholders);
 
 alter table public.categories enable row level security;
 alter table public.prompts enable row level security;

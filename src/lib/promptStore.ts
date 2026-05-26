@@ -1,6 +1,6 @@
 import { fallbackCategories, fallbackPrompts } from '../data/fallbackPrompts';
 import { hasSupabaseEnv, supabase } from './supabase';
-import type { Category, PromptItem } from '../types';
+import type { Category, PromptItem, PromptPlaceholder } from '../types';
 
 const STORAGE_KEY = 'prompty-admin-store';
 
@@ -12,15 +12,54 @@ type StoredLibrary = {
 export type CategoryInput = Pick<Category, 'name_ar' | 'slug' | 'order'>;
 export type PromptInput = Pick<
   PromptItem,
-  'title_ar' | 'prompt_ar' | 'category' | 'usage' | 'tags'
+  'title_ar' | 'prompt_ar' | 'placeholders' | 'category' | 'usage' | 'tags'
 >;
+
+function normalizePlaceholder(placeholder: Partial<PromptPlaceholder> | null | undefined) {
+  if (!placeholder?.key) {
+    return null;
+  }
+
+  const normalized: PromptPlaceholder = {
+    key: placeholder.key,
+    label: placeholder.label ?? '',
+    description: placeholder.description ?? '',
+    defaultValue: placeholder.defaultValue ?? '',
+  };
+
+  return normalized;
+}
+
+function normalizePrompt(prompt: Partial<PromptItem>): PromptItem {
+  return {
+    id: prompt.id ?? crypto.randomUUID(),
+    title_ar: prompt.title_ar ?? '',
+    prompt_ar: prompt.prompt_ar ?? '',
+    placeholders: (prompt.placeholders ?? []).reduce<PromptPlaceholder[]>(
+      (accumulator, placeholder) => {
+        const normalized = normalizePlaceholder(placeholder);
+
+        if (normalized) {
+          accumulator.push(normalized);
+        }
+
+        return accumulator;
+      },
+      [],
+    ),
+    category: prompt.category ?? '',
+    usage: prompt.usage ?? '',
+    tags: prompt.tags ?? [],
+    created_at: prompt.created_at ?? '',
+  };
+}
 
 function sortCategories(categories: Category[]) {
   return [...categories].sort((a, b) => a.order - b.order);
 }
 
 function sortPrompts(prompts: PromptItem[]) {
-  return [...prompts].sort((a, b) => {
+  return prompts.map(normalizePrompt).sort((a, b) => {
     const aTime = Date.parse(a.created_at || '') || 0;
     const bTime = Date.parse(b.created_at || '') || 0;
     return bTime - aTime;
@@ -51,7 +90,7 @@ function readLocalLibrary(): StoredLibrary {
     const parsed = JSON.parse(raw) as Partial<StoredLibrary>;
     return {
       categories: sortCategories(parsed.categories ?? fallbackCategories),
-      prompts: sortPrompts(parsed.prompts ?? fallbackPrompts),
+      prompts: sortPrompts(parsed.prompts?.map(normalizePrompt) ?? fallbackPrompts),
     };
   } catch {
     return buildFallbackLibrary();
@@ -97,7 +136,7 @@ export async function fetchLibrary() {
 
   return {
     categories: sortCategories(categoryRows ?? fallbackCategories),
-    prompts: sortPrompts(promptRows ?? fallbackPrompts),
+    prompts: sortPrompts((promptRows ?? fallbackPrompts).map(normalizePrompt)),
     source: 'supabase' as const,
     error: null,
   };

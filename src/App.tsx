@@ -14,6 +14,11 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import { PromptCard } from './components/PromptCard';
 import {
+  buildPlaceholderDefinitions,
+  extractPlaceholderKeys,
+  humanizePlaceholderKey,
+} from './lib/placeholders';
+import {
   createCategory,
   createPrompt,
   deleteCategory,
@@ -24,7 +29,7 @@ import {
   type CategoryInput,
   type PromptInput,
 } from './lib/promptStore';
-import type { Category, PromptItem } from './types';
+import type { Category, PromptItem, PromptPlaceholder } from './types';
 
 const ALL_CATEGORY = 'all';
 const MANAGE_PATH = '/manage';
@@ -60,9 +65,16 @@ type CategoryFormState = {
 type PromptFormState = {
   title_ar: string;
   prompt_ar: string;
+  placeholders: Record<string, PromptPlaceholderFormState>;
   category: string;
   usage: string;
   tags: string;
+};
+
+type PromptPlaceholderFormState = {
+  label: string;
+  description: string;
+  defaultValue: string;
 };
 
 const emptyCategoryForm: CategoryFormState = {
@@ -74,6 +86,7 @@ const emptyCategoryForm: CategoryFormState = {
 const emptyPromptForm: PromptFormState = {
   title_ar: '',
   prompt_ar: '',
+  placeholders: {},
   category: '',
   usage: '',
   tags: '',
@@ -119,9 +132,21 @@ function categoryToForm(category: Category): CategoryFormState {
 }
 
 function promptToForm(prompt: PromptItem): PromptFormState {
+  const placeholders = buildPlaceholderDefinitions(prompt.prompt_ar, prompt.placeholders).reduce<
+    Record<string, PromptPlaceholderFormState>
+  >((accumulator, placeholder) => {
+    accumulator[placeholder.key] = {
+      label: placeholder.label,
+      description: placeholder.description,
+      defaultValue: placeholder.defaultValue ?? '',
+    };
+    return accumulator;
+  }, {});
+
   return {
     title_ar: prompt.title_ar,
     prompt_ar: prompt.prompt_ar,
+    placeholders,
     category: prompt.category,
     usage: prompt.usage,
     tags: prompt.tags.join(', '),
@@ -137,13 +162,45 @@ function toCategoryInput(form: CategoryFormState): CategoryInput {
 }
 
 function toPromptInput(form: PromptFormState): PromptInput {
+  const placeholders = extractPlaceholderKeys(form.prompt_ar).map((key) => {
+    const metadata = form.placeholders[key];
+
+    return {
+      key,
+      label: metadata?.label.trim() || humanizePlaceholderKey(key),
+      description: metadata?.description.trim() || '',
+      defaultValue: metadata?.defaultValue.trim() || '',
+    } satisfies PromptPlaceholder;
+  });
+
   return {
     title_ar: form.title_ar.trim(),
     prompt_ar: form.prompt_ar.trim(),
+    placeholders,
     category: form.category,
     usage: form.usage.trim(),
     tags: splitTags(form.tags),
   };
+}
+
+function syncPlaceholderFormState(
+  promptText: string,
+  previousState: Record<string, PromptPlaceholderFormState>,
+) {
+  return extractPlaceholderKeys(promptText).reduce<Record<string, PromptPlaceholderFormState>>(
+    (accumulator, key) => {
+      const existing = previousState[key];
+
+      accumulator[key] = {
+        label: existing?.label || humanizePlaceholderKey(key),
+        description: existing?.description || '',
+        defaultValue: existing?.defaultValue || '',
+      };
+
+      return accumulator;
+    },
+    {},
+  );
 }
 
 function App() {
@@ -171,6 +228,10 @@ function App() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const isManagePage = pathname === MANAGE_PATH;
+  const detectedPlaceholderKeys = useMemo(
+    () => extractPlaceholderKeys(promptForm.prompt_ar),
+    [promptForm.prompt_ar],
+  );
 
   async function loadData() {
     setLoading(true);
@@ -287,6 +348,33 @@ function App() {
     setEditingPromptId(null);
   }
 
+  function handlePromptTextChange(value: string) {
+    setPromptForm((current) => ({
+      ...current,
+      prompt_ar: value,
+      placeholders: syncPlaceholderFormState(value, current.placeholders),
+    }));
+  }
+
+  function handlePlaceholderFieldChange(
+    key: string,
+    field: keyof PromptPlaceholderFormState,
+    value: string,
+  ) {
+    setPromptForm((current) => ({
+      ...current,
+      placeholders: {
+        ...current.placeholders,
+        [key]: {
+          label: current.placeholders[key]?.label || humanizePlaceholderKey(key),
+          description: current.placeholders[key]?.description || '',
+          defaultValue: current.placeholders[key]?.defaultValue || '',
+          [field]: value,
+        },
+      },
+    }));
+  }
+
   function handleLoginSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -354,6 +442,15 @@ function App() {
       payload.tags.length === 0
     ) {
       setInfoMessage('املأ جميع حقول البرومبت وأدخل وسمًا واحدًا على الأقل.');
+      return;
+    }
+
+    const missingPlaceholderMetadata = payload.placeholders.some(
+      (placeholder) => !placeholder.label || !placeholder.description,
+    );
+
+    if (missingPlaceholderMetadata) {
+      setInfoMessage('أكمل اسم العرض والوصف لكل متغير تم اكتشافه داخل البرومبت.');
       return;
     }
 
@@ -686,16 +783,112 @@ function App() {
                       <span className="text-sm font-medium text-slate-700">النص</span>
                       <textarea
                         value={promptForm.prompt_ar}
-                        onChange={(event) =>
-                          setPromptForm((current) => ({
-                            ...current,
-                            prompt_ar: event.target.value,
-                          }))
-                        }
+                        onChange={(event) => handlePromptTextChange(event.target.value)}
                         className="min-h-36 w-full rounded-2xl border border-[#e7dccd] bg-[#fffcf7] px-4 py-3 outline-none transition focus:border-bronze/40 focus:ring-4 focus:ring-bronze/10"
-                        placeholder="اكتب نص البرومبت هنا"
+                        placeholder="اكتب نص البرومبت هنا، مثل: اكتب مقالًا عن [الموضوع]"
                       />
                     </label>
+
+                    <div className="space-y-4 rounded-[24px] border border-dashed border-emerald-200 bg-emerald-50/60 p-4">
+                      <div>
+                        <p className="text-sm font-semibold text-emerald-800">
+                          إعدادات المتغيرات التفاعلية
+                        </p>
+                        <p className="mt-1 text-sm leading-6 text-emerald-900/80">
+                          أي نص بين أقواس مربعة مثل <code>[topic]</code> سيتم اكتشافه تلقائياً
+                          وإظهاره للمستخدم كحقل قابل للتعبئة قبل النسخ.
+                        </p>
+                      </div>
+
+                      {detectedPlaceholderKeys.length === 0 ? (
+                        <p className="text-sm text-slate-600">
+                          لا توجد متغيرات حالياً. أضف متغيراً داخل النص باستخدام الصيغة{' '}
+                          <code>[اسم المتغير]</code>.
+                        </p>
+                      ) : (
+                        <div className="space-y-3">
+                          {detectedPlaceholderKeys.map((key) => {
+                            const metadata = promptForm.placeholders[key] ?? {
+                              label: humanizePlaceholderKey(key),
+                              description: '',
+                              defaultValue: '',
+                            };
+
+                            return (
+                              <div
+                                key={key}
+                                className="rounded-[22px] border border-emerald-100 bg-white/90 p-4"
+                              >
+                                <div className="mb-3 flex flex-wrap items-center gap-3">
+                                  <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">
+                                    {`[${key}]`}
+                                  </span>
+                                  <span className="text-sm text-slate-500">
+                                    المتغير المكتشف من نص البرومبت
+                                  </span>
+                                </div>
+
+                                <div className="grid gap-3 lg:grid-cols-2">
+                                  <label className="block space-y-2">
+                                    <span className="text-sm font-medium text-slate-700">
+                                      اسم الحقل
+                                    </span>
+                                    <input
+                                      value={metadata.label}
+                                      onChange={(event) =>
+                                        handlePlaceholderFieldChange(
+                                          key,
+                                          'label',
+                                          event.target.value,
+                                        )
+                                      }
+                                      className="w-full rounded-2xl border border-[#d7ebde] bg-[#f8fffb] px-4 py-3 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+                                      placeholder="مثال: Topic"
+                                    />
+                                  </label>
+
+                                  <label className="block space-y-2">
+                                    <span className="text-sm font-medium text-slate-700">
+                                      قيمة افتراضية اختيارية
+                                    </span>
+                                    <input
+                                      value={metadata.defaultValue}
+                                      onChange={(event) =>
+                                        handlePlaceholderFieldChange(
+                                          key,
+                                          'defaultValue',
+                                          event.target.value,
+                                        )
+                                      }
+                                      className="w-full rounded-2xl border border-[#d7ebde] bg-[#f8fffb] px-4 py-3 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+                                      placeholder="يمكن تركها فارغة"
+                                    />
+                                  </label>
+                                </div>
+
+                                <label className="mt-3 block space-y-2">
+                                  <span className="text-sm font-medium text-slate-700">
+                                    الوصف والإرشادات للمستخدم
+                                  </span>
+                                  <textarea
+                                    value={metadata.description}
+                                    onChange={(event) =>
+                                      handlePlaceholderFieldChange(
+                                        key,
+                                        'description',
+                                        event.target.value,
+                                      )
+                                    }
+                                    className="min-h-24 w-full rounded-2xl border border-[#d7ebde] bg-[#f8fffb] px-4 py-3 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+                                    placeholder="مثال: أدخل الموضوع الذي تريد أن يدور حوله المقال."
+                                  />
+                                </label>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
 
                     <label className="block space-y-2">
                       <span className="text-sm font-medium text-slate-700">التصنيف</span>
@@ -791,6 +984,11 @@ function App() {
                               <p className="text-sm text-slate-500">
                                 {categoryName} | الوسوم: {prompt.tags.join('، ')}
                               </p>
+                              {prompt.placeholders.length > 0 && (
+                                <p className="text-sm text-emerald-700">
+                                  {prompt.placeholders.length} متغير تفاعلي
+                                </p>
+                              )}
                             </div>
 
                             <div className="flex gap-2">

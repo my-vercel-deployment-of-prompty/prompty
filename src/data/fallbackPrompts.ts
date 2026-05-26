@@ -1,4 +1,5 @@
 import type { Category, PromptItem } from '../types';
+import { buildPlaceholderDefinitions } from '../lib/placeholders';
 
 export const fallbackCategories: Category[] = [
   { id: '1', name_ar: 'كتابة', slug: 'writing', order: 1 },
@@ -10,7 +11,7 @@ export const fallbackCategories: Category[] = [
   { id: '7', name_ar: 'سوشيال ميديا', slug: 'social_media', order: 7 },
 ];
 
-export const fallbackPrompts: PromptItem[] = [
+const fallbackPromptRows = [
   {
     id: 'p1',
     title_ar: 'مقال عربي متوازن',
@@ -222,3 +223,8 @@ export const fallbackPrompts: PromptItem[] = [
     created_at: '',
   },
 ];
+
+export const fallbackPrompts: PromptItem[] = fallbackPromptRows.map((prompt) => ({
+  ...prompt,
+  placeholders: buildPlaceholderDefinitions(prompt.prompt_ar, []),
+}));
