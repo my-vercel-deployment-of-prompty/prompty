@@ -52,6 +52,7 @@ export function PromptCard({
   const hasEnglish = hasPromptVersion(prompt, 'en');
   const canToggleLanguage = hasArabic && hasEnglish;
   const [activeLanguage, setActiveLanguage] = useState<PromptLanguage>(() => getInitialLanguage(prompt));
+  const [isExpanded, setIsExpanded] = useState(false);
   const activeContent = getPromptContent(prompt, activeLanguage);
   const isEnglishActive = activeLanguage === 'en';
   const placeholderDefinitions = useMemo(
@@ -69,9 +70,14 @@ export function PromptCard({
       ]),
     ),
   );
+  
+  const maxCharacters = 200;
+  const promptTextLength = activeContent.text.length;
+  const shouldShowReadMore = promptTextLength > maxCharacters;
 
   useEffect(() => {
     setActiveLanguage(getInitialLanguage(prompt));
+    setIsExpanded(false);
   }, [prompt]);
 
   useEffect(() => {
@@ -87,6 +93,7 @@ export function PromptCard({
 
   useEffect(() => {
     setActivePlaceholderKey(null);
+    setIsExpanded(false);
   }, [prompt.id, activeLanguage]);
 
   useEffect(() => {
@@ -168,10 +175,28 @@ export function PromptCard({
 
       <div
         dir={promptDirection}
-        className={`mb-4 rounded-[22px] bg-[#fcfaf5] p-4 text-sm leading-8 text-slate-700 ${promptAlignClass}`}
+        className={`relative mb-4 rounded-[22px] bg-[#fcfaf5] p-4 text-sm leading-8 text-slate-700 transition-all duration-300 ${promptAlignClass} ${!isExpanded && shouldShowReadMore ? 'max-h-32 overflow-hidden' : ''}`}
       >
         <p className="whitespace-pre-wrap">
           {promptSegments.map((segment, index) => {
+            // Check if we should truncate this segment
+            if (!isExpanded && shouldShowReadMore) {
+              // Build text up to current segment to check length
+              let charCount = 0;
+              let shouldInclude = true;
+
+              for (let i = 0; i <= index; i++) {
+                const seg = promptSegments[i];
+                charCount += seg.type === 'text' ? seg.value.length : (seg.token?.length || 0);
+                if (charCount > maxCharacters) {
+                  shouldInclude = false;
+                  break;
+                }
+              }
+
+              if (!shouldInclude) return null;
+            }
+
             if (segment.type === 'text') {
               return <span key={`${prompt.id}-text-${index}`}>{segment.value}</span>;
             }
@@ -230,7 +255,21 @@ export function PromptCard({
             );
           })}
         </p>
+        
+        {!isExpanded && shouldShowReadMore && (
+          <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#fcfaf5] via-[#fcfaf5]/60 to-transparent rounded-b-[22px]" />
+        )}
       </div>
+
+      {shouldShowReadMore && (
+        <button
+          type="button"
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="mb-4 inline-block text-sm font-semibold text-bronze transition hover:text-bronze/75"
+        >
+          {isExpanded ? 'اقرأ أقل' : 'اقرأ المزيد'}
+        </button>
+      )}
 
       {placeholderDefinitions.length > 0 && (
         <p className="mb-4 inline-flex items-center gap-2 text-sm text-emerald-700">
