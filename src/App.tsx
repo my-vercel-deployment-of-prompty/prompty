@@ -12,6 +12,7 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { JsonImportPage } from './components/JsonImportPage';
 import { PromptCard } from './components/PromptCard';
 import {
   buildPlaceholderDefinitions,
@@ -33,6 +34,7 @@ import type { Category, PromptItem, PromptLanguage, PromptPlaceholder } from './
 
 const ALL_CATEGORY = 'all';
 const MANAGE_PATH = '/manage';
+const JSON_IMPORT_PATH = '/JSON';
 const ADMIN_EMAIL = 'myemail@gmail.com';
 const ADMIN_PASSWORD = '12345678';
 const ADMIN_SESSION_KEY = 'prompty-admin-session';
@@ -273,6 +275,7 @@ function App() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const isManagePage = pathname === MANAGE_PATH;
+  const isJsonImportPage = pathname === JSON_IMPORT_PATH;
   const detectedPlaceholderKeys = useMemo(
     () => extractPlaceholderKeys(getPromptPlaceholderSource(promptForm)),
     [promptForm.primary_language, promptForm.prompt_ar, promptForm.prompt_en],
@@ -609,6 +612,25 @@ function App() {
     } finally {
       setDeletingId(null);
     }
+  }
+
+  if (isJsonImportPage) {
+    return (
+      <JsonImportPage
+        adminAuthed={adminAuthed}
+        categories={categories}
+        loading={loading}
+        loginEmail={loginEmail}
+        loginPassword={loginPassword}
+        loginError={loginError}
+        onBack={() => navigateTo('/')}
+        onImported={loadData}
+        onLoginEmailChange={setLoginEmail}
+        onLoginPasswordChange={setLoginPassword}
+        onLoginSubmit={handleLoginSubmit}
+        onLogout={handleLogout}
+      />
+    );
   }
 
   if (isManagePage) {
