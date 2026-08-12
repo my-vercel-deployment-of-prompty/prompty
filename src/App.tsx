@@ -1355,7 +1355,7 @@ function App() {
           <div className="flex items-center justify-between gap-4">
             <a href="#top" className="flex items-center gap-3 text-lg font-semibold tracking-tight text-ink hover:opacity-80 transition">
               <img src="/new-logo.png" alt="Prompty Logo" className="h-16 w-12 rounded-lg" />
-              مكتبة البرومتات             </a>
+             برومتي           </a>
           </div>
 
           <nav className="scrollbar-none flex items-center gap-2 overflow-x-auto pb-1">
