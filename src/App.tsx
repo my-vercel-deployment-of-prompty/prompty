@@ -120,14 +120,6 @@ function readAdminSession() {
   return window.localStorage.getItem(ADMIN_SESSION_KEY) === 'true';
 }
 
-function readSocialPromptState() {
-  if (typeof window === 'undefined') {
-    return false;
-  }
-
-  return window.localStorage.getItem(SOCIAL_PROMPT_KEY) === 'true';
-}
-
 function splitTags(value: string) {
   return value
     .split(',')
