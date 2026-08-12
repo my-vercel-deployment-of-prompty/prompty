@@ -268,7 +268,7 @@ function App() {
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState<string | null>(null);
-  const [dismissedSocialPrompt, setDismissedSocialPrompt] = useState(readSocialPromptState);
+  const [dismissedSocialPrompt, setDismissedSocialPrompt] = useState(true);
   const [librarySource, setLibrarySource] = useState<'local' | 'fallback' | 'supabase' | null>(null);
   const [categoryForm, setCategoryForm] = useState<CategoryFormState>(emptyCategoryForm);
   const [promptForm, setPromptForm] = useState<PromptFormState>(emptyPromptForm);
