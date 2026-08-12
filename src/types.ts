@@ -26,5 +26,6 @@ export type PromptItem = {
   placeholders: PromptPlaceholder[];
   category: string;
   tags: string[];
+  is_featured: boolean;
   created_at: string;
 };

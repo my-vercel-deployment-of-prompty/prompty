@@ -118,12 +118,21 @@ export function PromptCard({
   return (
     <article
       ref={cardRef}
-      className="group flex h-full flex-col rounded-[28px] border border-white/70 bg-white/80 p-5 shadow-soft backdrop-blur transition duration-300 hover:-translate-y-1 hover:shadow-[0_26px_60px_rgba(36,27,20,0.14)] sm:p-6"
+      className={`group flex h-full flex-col rounded-[28px] border p-5 shadow-soft backdrop-blur transition duration-300 hover:-translate-y-1 hover:shadow-[0_26px_60px_rgba(36,27,20,0.14)] sm:p-6 ${
+        prompt.is_featured
+          ? 'border-amber-200 bg-amber-50/80 text-amber-950'
+          : 'border-white/70 bg-white/80 text-slate-700'
+      }`}
     >
       <div className="mb-4 flex items-center justify-between gap-3">
-        <span className="rounded-full bg-sand px-3 py-1 text-xs font-semibold text-bronze">
-          {categoryName}
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full bg-sand px-3 py-1 text-xs font-semibold text-bronze">
+            {categoryName}
+          </span>
+          {prompt.is_featured && (
+            <span className="h-3 w-3 rounded-full border border-amber-300 bg-amber-400 shadow-sm" />
+          )}
+        </div>
         <div className="flex items-center gap-2">
           {canToggleLanguage && (
             <button

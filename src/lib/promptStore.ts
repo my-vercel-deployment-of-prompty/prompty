@@ -22,6 +22,7 @@ export type PromptInput = Pick<
   | 'placeholders'
   | 'category'
   | 'tags'
+  | 'is_featured'
 >;
 
 function normalizePromptLanguage(value: string | null | undefined): PromptLanguage {
@@ -67,6 +68,7 @@ function normalizePrompt(prompt: Partial<PromptItem>): PromptItem {
     ),
     category: prompt.category ?? '',
     tags: prompt.tags ?? [],
+    is_featured: Boolean(prompt.is_featured ?? false),
     created_at: prompt.created_at ?? '',
   };
 }

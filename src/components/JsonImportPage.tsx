@@ -96,6 +96,7 @@ const aiInstruction = `أنت مساعد ينشئ بيانات JSON لإضافت
 - title_en و prompt_en و usage_en للنسخة الإنجليزية، ويمكن تركها فارغة إذا لم توجد نسخة إنجليزية.
 - category: slug التصنيف الموجود في الموقع.
 - tags: مصفوفة وسوم مثل ["كتابة", "تعليم"].
+- is_featured: boolean يحدد إذا كان البرومبت مميزًا أم لا.
 - placeholders: مصفوفة بيانات المتغيرات.
 
 المتغيرات داخل نص البرومبت يجب أن تكتب بين أقواس مربعة بنفس الاسم تماماً، مثل:
@@ -197,6 +198,7 @@ function normalizePromptRecord(record: unknown, index: number, categorySlugs: Se
     placeholders: normalizePlaceholders(item.placeholders),
     category: stringifyJsonValue(item.category),
     tags: normalizeTags(item.tags),
+    is_featured: Boolean(item.is_featured),
   };
 
   const hasArabicVersion = hasLanguageContent(payload, 'ar');

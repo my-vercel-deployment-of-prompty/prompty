@@ -22,6 +22,7 @@ create table public.prompts (
   prompt_en text not null default '',
   usage_en text not null default '',
   tags text[] not null default '{}',
+  is_featured boolean not null default false,
   created_at timestamptz not null default now(),
   constraint prompts_primary_language_valid check (primary_language in ('ar', 'en')),
   constraint prompts_placeholders_is_array check (jsonb_typeof(placeholders) = 'array'),

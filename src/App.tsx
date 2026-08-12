@@ -75,6 +75,7 @@ type PromptFormState = {
   placeholders: Record<string, PromptPlaceholderFormState>;
   category: string;
   tags: string;
+  is_featured: boolean;
 };
 
 type PromptPlaceholderFormState = {
@@ -100,6 +101,7 @@ const emptyPromptForm: PromptFormState = {
   placeholders: {},
   category: '',
   tags: '',
+  is_featured: false,
 };
 
 function getInitialPath() {
@@ -193,6 +195,7 @@ function promptToForm(prompt: PromptItem): PromptFormState {
     placeholders,
     category: prompt.category,
     tags: prompt.tags.join(', '),
+    is_featured: prompt.is_featured,
   };
 }
 
@@ -227,6 +230,7 @@ function toPromptInput(form: PromptFormState): PromptInput {
     placeholders,
     category: form.category,
     tags: splitTags(form.tags),
+    is_featured: form.is_featured,
   };
 }
 
@@ -500,8 +504,6 @@ function App() {
     const payload = toPromptInput(promptForm);
     const hasArabicVersion = hasPromptLanguageContent(payload, 'ar');
     const hasEnglishVersion = hasPromptLanguageContent(payload, 'en');
-    const arabicPlaceholderKeys = extractPlaceholderKeys(payload.prompt_ar);
-    const englishPlaceholderKeys = extractPlaceholderKeys(payload.prompt_en);
 
     if (!hasPromptLanguageContent(payload, payload.primary_language)) {
       setInfoMessage(
@@ -530,24 +532,6 @@ function App() {
       !hasEnglishVersion
     ) {
       setInfoMessage('إذا أردت إضافة النسخة الإنجليزية، فيجب إدخال العنوان والنص والاستخدام معًا.');
-      return;
-    }
-
-    if (
-      hasArabicVersion &&
-      hasEnglishVersion &&
-      JSON.stringify(arabicPlaceholderKeys) !== JSON.stringify(englishPlaceholderKeys)
-    ) {
-      setInfoMessage('يجب أن تستخدم النسختان العربية والإنجليزية نفس المتغيرات بين الأقواس مثل [topic].');
-      return;
-    }
-
-    const missingPlaceholderMetadata = payload.placeholders.some(
-      (placeholder) => !placeholder.label || !placeholder.description,
-    );
-
-    if (missingPlaceholderMetadata) {
-      setInfoMessage('أكمل اسم العرض والوصف لكل متغير تم اكتشافه داخل البرومبت.');
       return;
     }
 
@@ -657,7 +641,7 @@ function App() {
                     value={loginEmail}
                     onChange={(event) => setLoginEmail(event.target.value)}
                     className="w-full rounded-2xl border border-[#e7dccd] bg-[#fffcf7] px-4 py-3 outline-none transition focus:border-bronze/40 focus:ring-4 focus:ring-bronze/10"
-                    placeholder="myemail@gmail.com"
+                    placeholder="example@gmail.com"
                   />
                 </label>
 
@@ -668,7 +652,7 @@ function App() {
                     value={loginPassword}
                     onChange={(event) => setLoginPassword(event.target.value)}
                     className="w-full rounded-2xl border border-[#e7dccd] bg-[#fffcf7] px-4 py-3 outline-none transition focus:border-bronze/40 focus:ring-4 focus:ring-bronze/10"
-                    placeholder="12345678"
+                    placeholder="your password"
                   />
                 </label>
 
@@ -1119,39 +1103,56 @@ function App() {
                       )}
                     </div>
 
-                    <label className="block space-y-2">
-                      <span className="text-sm font-medium text-slate-700">التصنيف</span>
-                      <select
-                        value={promptForm.category}
-                        onChange={(event) =>
-                          setPromptForm((current) => ({
-                            ...current,
-                            category: event.target.value,
-                          }))
-                        }
-                        className="w-full rounded-2xl border border-[#e7dccd] bg-[#fffcf7] px-4 py-3 outline-none transition focus:border-bronze/40 focus:ring-4 focus:ring-bronze/10"
-                      >
-                        {categories.map((category) => (
-                          <option key={category.id} value={category.slug}>
-                            {category.name_ar}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                    <div className="grid gap-4 lg:grid-cols-2">
+                      <label className="block space-y-2">
+                        <span className="text-sm font-medium text-slate-700">التصنيف</span>
+                        <select
+                          value={promptForm.category}
+                          onChange={(event) =>
+                            setPromptForm((current) => ({
+                              ...current,
+                              category: event.target.value,
+                            }))
+                          }
+                          className="w-full rounded-2xl border border-[#e7dccd] bg-[#fffcf7] px-4 py-3 outline-none transition focus:border-bronze/40 focus:ring-4 focus:ring-bronze/10"
+                        >
+                          {categories.map((category) => (
+                            <option key={category.id} value={category.slug}>
+                              {category.name_ar}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
 
-                    <label className="block space-y-2">
-                      <span className="text-sm font-medium text-slate-700">الوسوم</span>
+                      <label className="block space-y-2">
+                        <span className="text-sm font-medium text-slate-700">الوسوم</span>
+                        <input
+                          value={promptForm.tags}
+                          onChange={(event) =>
+                            setPromptForm((current) => ({
+                              ...current,
+                              tags: event.target.value,
+                            }))
+                          }
+                          className="w-full rounded-2xl border border-[#e7dccd] bg-[#fffcf7] px-4 py-3 outline-none transition focus:border-bronze/40 focus:ring-4 focus:ring-bronze/10"
+                          placeholder="وسم 1, وسم 2, وسم 3"
+                        />
+                      </label>
+                    </div>
+
+                    <label className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-sm text-amber-900">
                       <input
-                        value={promptForm.tags}
+                        type="checkbox"
+                        checked={promptForm.is_featured}
                         onChange={(event) =>
                           setPromptForm((current) => ({
                             ...current,
-                            tags: event.target.value,
+                            is_featured: event.target.checked,
                           }))
                         }
-                        className="w-full rounded-2xl border border-[#e7dccd] bg-[#fffcf7] px-4 py-3 outline-none transition focus:border-bronze/40 focus:ring-4 focus:ring-bronze/10"
-                        placeholder="وسم 1, وسم 2, وسم 3"
+                        className="h-4 w-4 rounded border-amber-300 text-amber-600 focus:ring-amber-400"
                       />
+                      <span>تمييز هذا البرومبت كـ destacado/مهم</span>
                     </label>
 
                     <div className="flex flex-wrap gap-3">
@@ -1361,8 +1362,8 @@ function App() {
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between gap-4">
             <a href="#top" className="flex items-center gap-3 text-lg font-semibold tracking-tight text-ink hover:opacity-80 transition">
-              <img src="/favicon.png" alt="Prompty Logo" className="h-24 w-24 rounded-lg" />
-مكتبة البرومتات             </a>
+              <img src="/new-logo.png" alt="Prompty Logo" className="h-16 w-12 rounded-lg" />
+              مكتبة البرومتات             </a>
           </div>
 
           <nav className="scrollbar-none flex items-center gap-2 overflow-x-auto pb-1">
@@ -1430,10 +1431,17 @@ function App() {
                   }`}
                 >
                   <p className="mb-2 text-sm font-medium text-bronze">{category.name_ar}</p>
-                  <h2 className="mb-3 text-xl font-semibold leading-8">مكتبة منظمة لهذا التصنيف</h2>
+                  <h2 className="mb-3 text-xl font-semibold leading-8">
+                    {category.name_ar === 'كتابة' && 'مكتبة للكتابة'}
+                    {category.name_ar === 'برمجة' && 'مكتبة للتطوير'}
+                    {category.name_ar === 'تعليم' && 'مكتبة للتعليم'}
+                    {category.name_ar === 'أعمال' && 'مكتبة للأعمال'}
+                  </h2>
                   <p className="text-sm leading-7 text-slate-600">
-                    تصفح مجموعة مختارة قابلة للنسخ الفوري، مع نصوص استخدام واضحة ووسوم تسهّل
-                    العثور على المطلوب.
+                    {category.name_ar === 'كتابة' && 'اكتشف أوامر جاهزة لإنتاج نصوص، مقالات، رسائل، وأفكار بأسلوب محدد، مع تحكم أكبر في النتيجة.'}
+                    {category.name_ar === 'برمجة' && 'تصفح أوامر مخصصة لإنشاء الكود، شرح الأخطاء، تحسين المنطق، وكتابة الوثائق بطريقة أسرع وأكثر اتساقًا.'}
+                    {category.name_ar === 'تعليم' && 'استخدم سيناريوهات جاهزة لتوليد شروحات، أسئلة، تقييمات، وتمارين تعليمية مناسبة لمختلف المستويات.'}
+                    {category.name_ar === 'أعمال' && 'ابحث عن أوامر جاهزة لإنشاء رسائل، عروض، خطط، واستراتيجيات تجارية تساعدك على العمل بفعالية أكبر.'}
                   </p>
                 </div>
               ))}
